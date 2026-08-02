@@ -1,6 +1,7 @@
 import mongoose, {
-  type Document,
-  type Model,
+  Document,
+  Model,
+  Schema,
 } from "mongoose";
 
 export interface IAdmin
@@ -9,12 +10,13 @@ export interface IAdmin
   email: string;
   password: string;
   role: "admin";
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
 const adminSchema =
-  new mongoose.Schema<IAdmin>(
+  new Schema<IAdmin>(
     {
       name: {
         type: String,
@@ -33,12 +35,20 @@ const adminSchema =
       password: {
         type: String,
         required: true,
+        select: false,
       },
 
       role: {
         type: String,
         enum: ["admin"],
         default: "admin",
+        required: true,
+      },
+
+      isActive: {
+        type: Boolean,
+        default: true,
+        required: true,
       },
     },
     {
@@ -47,6 +57,7 @@ const adminSchema =
   );
 
 export const Admin: Model<IAdmin> =
+  mongoose.models.Admin ||
   mongoose.model<IAdmin>(
     "Admin",
     adminSchema

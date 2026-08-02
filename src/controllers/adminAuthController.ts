@@ -1,17 +1,13 @@
 import type { Request, Response } from "express";
+
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import jwt, {
+  type SignOptions,
+} from "jsonwebtoken";
 
 import { Admin } from "../models/Admin.js";
 
-interface AdminJwtPayload {
-  sub: string;
-  role: "admin";
-  iat?: number;
-  exp?: number;
-}
-
-interface AuthenticatedAdminRequest
+export interface AuthenticatedAdminRequest
   extends Request {
   admin?: {
     id: string;
@@ -21,13 +17,14 @@ interface AuthenticatedAdminRequest
   };
 }
 
+
 function getJwtSecret(): string {
   const secret =
     process.env.ADMIN_JWT_SECRET;
 
   if (!secret) {
     throw new Error(
-      "ADMIN_JWT_SECRET is not configured in environment variables."
+      "ADMIN_JWT_SECRET is not configured."
     );
   }
 
@@ -41,6 +38,17 @@ function getCookieName(): string {
   );
 }
 
+function getJwtExpiresIn(): SignOptions["expiresIn"] {
+  const expiresIn =
+    process.env.ADMIN_JWT_EXPIRES_IN;
+
+  if (!expiresIn) {
+    return "1d";
+  }
+
+  return expiresIn as SignOptions["expiresIn"];
+}
+
 function getCookieOptions() {
   const isProduction =
     process.env.NODE_ENV ===
@@ -48,11 +56,15 @@ function getCookieOptions() {
 
   return {
     httpOnly: true,
+
     secure: isProduction,
+
     sameSite: isProduction
       ? ("none" as const)
       : ("lax" as const),
+
     path: "/",
+
     maxAge:
       1000 *
       60 *
@@ -106,10 +118,13 @@ export async function loginAdmin(
 
       return;
     }
+
     const admin =
       await Admin.findOne({
         email: normalizedEmail,
-      });
+      }).select(
+        "+password"
+      );
 
     if (!admin) {
       res.status(401).json({
@@ -147,22 +162,17 @@ export async function loginAdmin(
       return;
     }
 
-    const token =
-      jwt.sign(
-        {
-          sub: admin._id.toString(),
-          role: "admin",
-        } satisfies Omit<
-          AdminJwtPayload,
-          "iat" | "exp"
-        >,
-        getJwtSecret(),
-        {
-          expiresIn:
-            process.env.ADMIN_JWT_EXPIRES_IN ||
-            "1d",
-        }
-      );
+    const token = jwt.sign(
+      {
+        sub: admin._id.toString(),
+        role: "admin",
+      },
+      getJwtSecret(),
+      {
+        expiresIn:
+          getJwtExpiresIn(),
+      }
+    );
 
     res.cookie(
       getCookieName(),
@@ -201,35 +211,22 @@ export async function getCurrentAdmin(
   req: AuthenticatedAdminRequest,
   res: Response
 ): Promise<void> {
-  try {
-    if (!req.admin) {
-      res.status(401).json({
-        success: false,
-        message:
-          "Administrator authentication required.",
-      });
-
-      return;
-    }
-
-    res.status(200).json({
-      success: true,
-      data: {
-        admin: req.admin,
-      },
-    });
-  } catch (error) {
-    console.error(
-      "Get current admin error:",
-      error
-    );
-
-    res.status(500).json({
+  if (!req.admin) {
+    res.status(401).json({
       success: false,
       message:
-        "Unable to retrieve administrator account.",
+        "Administrator authentication required.",
     });
+
+    return;
   }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      admin: req.admin,
+    },
+  });
 }
 
 export async function logoutAdmin(
@@ -237,18 +234,21 @@ export async function logoutAdmin(
   res: Response
 ): Promise<void> {
   try {
+    const isProduction =
+      process.env.NODE_ENV ===
+      "production";
+
     res.clearCookie(
       getCookieName(),
       {
         httpOnly: true,
-        secure:
-          process.env.NODE_ENV ===
-          "production",
-        sameSite:
-          process.env.NODE_ENV ===
-          "production"
-            ? ("none" as const)
-            : ("lax" as const),
+
+        secure: isProduction,
+
+        sameSite: isProduction
+          ? ("none" as const)
+          : ("lax" as const),
+
         path: "/",
       }
     );
