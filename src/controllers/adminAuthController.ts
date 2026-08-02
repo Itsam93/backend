@@ -1,4 +1,7 @@
-import type { Request, Response } from "express";
+import type {
+  Request,
+  Response,
+} from "express";
 
 import bcrypt from "bcryptjs";
 import jwt, {
@@ -7,20 +10,12 @@ import jwt, {
 
 import { Admin } from "../models/Admin.js";
 
-export interface AuthenticatedAdminRequest
-  extends Request {
-  admin?: {
-    id: string;
-    name: string;
-    email: string;
-    role: "admin";
-  };
-}
-
+import type {
+  AuthenticatedAdminRequest,
+} from "../middleware/adminAuth.js";
 
 function getJwtSecret(): string {
-  const secret =
-    process.env.ADMIN_JWT_SECRET;
+  const secret = process.env.ADMIN_JWT_SECRET;
 
   if (!secret) {
     throw new Error(
@@ -49,7 +44,6 @@ function getJwtExpiresIn(): SignOptions["expiresIn"] {
   return expiresIn as SignOptions["expiresIn"];
 }
 
-
 function getCookieOptions() {
   const isProduction =
     process.env.NODE_ENV === "production";
@@ -72,7 +66,6 @@ function getCookieOptions() {
       24,
   };
 }
-
 
 export async function loginAdmin(
   req: Request,
@@ -110,7 +103,7 @@ export async function loginAdmin(
       return;
     }
 
-    if (!password.trim()) {
+    if (!password) {
       res.status(400).json({
         success: false,
         message:
@@ -146,8 +139,8 @@ export async function loginAdmin(
     }
 
     if (
-      !admin.password ||
-      typeof admin.password !== "string"
+      typeof admin.password !== "string" ||
+      !admin.password
     ) {
       console.error(
         `Admin account ${admin.email} does not have a valid password hash.`
@@ -178,7 +171,6 @@ export async function loginAdmin(
       return;
     }
 
-
     const token = jwt.sign(
       {
         sub: admin._id.toString(),
@@ -186,8 +178,7 @@ export async function loginAdmin(
       },
       getJwtSecret(),
       {
-        expiresIn:
-          getJwtExpiresIn(),
+        expiresIn: getJwtExpiresIn(),
       }
     );
 
@@ -223,7 +214,6 @@ export async function loginAdmin(
     });
   }
 }
-
 
 export async function getCurrentAdmin(
   req: AuthenticatedAdminRequest,

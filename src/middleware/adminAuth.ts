@@ -26,8 +26,7 @@ export interface AuthenticatedAdminRequest
 }
 
 function getJwtSecret(): string {
-  const secret =
-    process.env.ADMIN_JWT_SECRET;
+  const secret = process.env.ADMIN_JWT_SECRET;
 
   if (!secret) {
     throw new Error(
@@ -51,11 +50,9 @@ export async function requireAdminAuth(
   next: NextFunction
 ): Promise<void> {
   try {
-    const cookieName =
-      getCookieName();
+    const cookieName = getCookieName();
 
-    const token =
-      req.cookies?.[cookieName];
+    const token = req.cookies?.[cookieName];
 
     if (!token) {
       res.status(401).json({
@@ -66,11 +63,11 @@ export async function requireAdminAuth(
 
       return;
     }
-    const decoded =
-      jwt.verify(
-        token,
-        getJwtSecret()
-      ) as AdminJwtPayload;
+
+    const decoded = jwt.verify(
+      token,
+      getJwtSecret()
+    ) as AdminJwtPayload;
 
     if (
       !decoded.sub ||
@@ -85,12 +82,11 @@ export async function requireAdminAuth(
       return;
     }
 
-    const admin =
-      await Admin.findById(
-        decoded.sub
-      ).select(
-        "_id name email role isActive"
-      );
+    const admin = await Admin.findById(
+      decoded.sub
+    ).select(
+      "_id name email role isActive"
+    );
 
     if (!admin) {
       res.status(401).json({
