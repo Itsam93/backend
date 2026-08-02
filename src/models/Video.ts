@@ -1,4 +1,7 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, {
+  Document,
+  Schema,
+} from "mongoose";
 
 export type VideoModerationStatus =
   | "pending"
@@ -10,8 +13,9 @@ export interface IVideo extends Document {
   church: string;
 
   videoUrl: string;
+  publicId: string;
   fileName?: string;
-  duration?: number;
+  duration?: number | null;
 
   status: VideoModerationStatus;
 
@@ -41,6 +45,12 @@ const videoSchema = new Schema<IVideo>(
       trim: true,
     },
 
+    publicId: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     fileName: {
       type: String,
       trim: true,
@@ -54,7 +64,11 @@ const videoSchema = new Schema<IVideo>(
 
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: [
+        "pending",
+        "approved",
+        "rejected",
+      ],
       default: "pending",
       index: true,
     },
@@ -74,7 +88,8 @@ const videoSchema = new Schema<IVideo>(
   }
 );
 
-export const Video = mongoose.model<IVideo>(
-  "Video",
-  videoSchema
-);
+export const Video =
+  mongoose.model<IVideo>(
+    "Video",
+    videoSchema
+  );
