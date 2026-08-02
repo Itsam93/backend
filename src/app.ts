@@ -1,4 +1,8 @@
-import express from "express";
+import express, {
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -12,6 +16,12 @@ import adminAuthRoutes from "./routes/adminAuthRoutes.js";
 
 const app = express();
 
+/*
+|--------------------------------------------------------------------------
+| Security
+|--------------------------------------------------------------------------
+*/
+
 app.use(
   helmet({
     crossOriginResourcePolicy: {
@@ -20,6 +30,12 @@ app.use(
   })
 );
 
+/*
+|--------------------------------------------------------------------------
+| CORS
+|--------------------------------------------------------------------------
+*/
+
 app.use(
   cors({
     origin: true,
@@ -27,7 +43,19 @@ app.use(
   })
 );
 
+/*
+|--------------------------------------------------------------------------
+| Cookies
+|--------------------------------------------------------------------------
+*/
+
 app.use(cookieParser());
+
+/*
+|--------------------------------------------------------------------------
+| Body Parsing
+|--------------------------------------------------------------------------
+*/
 
 app.use(
   express.json({
@@ -42,18 +70,38 @@ app.use(
   })
 );
 
+/*
+|--------------------------------------------------------------------------
+| Logging
+|--------------------------------------------------------------------------
+*/
 
 app.use(morgan("dev"));
 
+/*
+|--------------------------------------------------------------------------
+| Health Check
+|--------------------------------------------------------------------------
+*/
+
 app.get(
   "/api/health",
-  (_req, res) => {
+  (
+    _req: Request,
+    res: Response
+  ) => {
     res.status(200).json({
       success: true,
       message: "Backend is running.",
     });
   }
 );
+
+/*
+|--------------------------------------------------------------------------
+| Public API Routes
+|--------------------------------------------------------------------------
+*/
 
 app.use(
   "/api/messages",
@@ -70,18 +118,55 @@ app.use(
   webhookRoutes
 );
 
+/*
+|--------------------------------------------------------------------------
+| Admin Authentication Routes
+|--------------------------------------------------------------------------
+|
+| These routes are responsible for:
+|
+| POST /api/admin/auth/login
+| POST /api/admin/auth/logout
+| GET  /api/admin/auth/me
+|
+| They are intentionally mounted BEFORE the protected
+| /api/admin routes.
+|
+|--------------------------------------------------------------------------
+*/
+
 app.use(
   "/api/admin/auth",
   adminAuthRoutes
 );
+
+/*
+|--------------------------------------------------------------------------
+| Protected Admin Routes
+|--------------------------------------------------------------------------
+|
+| Authentication is handled inside adminRoutes.ts
+| through the adminAuth middleware.
+|
+|--------------------------------------------------------------------------
+*/
 
 app.use(
   "/api/admin",
   adminRoutes
 );
 
+/*
+|--------------------------------------------------------------------------
+| 404 Handler
+|--------------------------------------------------------------------------
+*/
+
 app.use(
-  (_req, res) => {
+  (
+    _req: Request,
+    res: Response
+  ) => {
     res.status(404).json({
       success: false,
       message: "Route not found.",
@@ -89,13 +174,18 @@ app.use(
   }
 );
 
+/*
+|--------------------------------------------------------------------------
+| Global Error Handler
+|--------------------------------------------------------------------------
+*/
 
 app.use(
   (
     error: unknown,
-    _req,
-    res,
-    _next
+    _req: Request,
+    res: Response,
+    _next: NextFunction
   ) => {
     console.error(
       "Unhandled application error:",

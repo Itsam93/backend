@@ -1,4 +1,9 @@
-import type { NextFunction, Request, Response } from "express";
+import type {
+  NextFunction,
+  Request,
+  Response,
+} from "express";
+
 import jwt from "jsonwebtoken";
 
 import { Admin } from "../models/Admin.js";
@@ -21,11 +26,12 @@ export interface AuthenticatedAdminRequest
 }
 
 function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
+  const secret =
+    process.env.ADMIN_JWT_SECRET;
 
   if (!secret) {
     throw new Error(
-      "JWT_SECRET is not defined in environment variables."
+      "ADMIN_JWT_SECRET is not configured in environment variables."
     );
   }
 
@@ -45,18 +51,21 @@ export async function requireAdminAuth(
   next: NextFunction
 ): Promise<void> {
   try {
+    const cookieName =
+      getCookieName();
+
     const token =
-      req.cookies?.[getCookieName()];
+      req.cookies?.[cookieName];
 
     if (!token) {
       res.status(401).json({
         success: false,
-        message: "Authentication required.",
+        message:
+          "Administrator authentication required.",
       });
 
       return;
     }
-
     const decoded =
       jwt.verify(
         token,
@@ -69,19 +78,25 @@ export async function requireAdminAuth(
     ) {
       res.status(401).json({
         success: false,
-        message: "Invalid authentication token.",
+        message:
+          "Invalid administrator session.",
       });
 
       return;
     }
 
     const admin =
-      await Admin.findById(decoded.sub);
+      await Admin.findById(
+        decoded.sub
+      ).select(
+        "_id name email role isActive"
+      );
 
     if (!admin) {
       res.status(401).json({
         success: false,
-        message: "Admin account not found.",
+        message:
+          "Administrator account no longer exists.",
       });
 
       return;
@@ -90,7 +105,8 @@ export async function requireAdminAuth(
     if (!admin.isActive) {
       res.status(403).json({
         success: false,
-        message: "Admin account is inactive.",
+        message:
+          "Administrator account is inactive.",
       });
 
       return;
@@ -110,7 +126,8 @@ export async function requireAdminAuth(
     ) {
       res.status(401).json({
         success: false,
-        message: "Authentication session has expired.",
+        message:
+          "Administrator session has expired.",
       });
 
       return;
@@ -121,7 +138,8 @@ export async function requireAdminAuth(
     ) {
       res.status(401).json({
         success: false,
-        message: "Invalid authentication token.",
+        message:
+          "Invalid administrator session.",
       });
 
       return;

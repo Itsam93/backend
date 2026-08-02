@@ -1,14 +1,17 @@
-import type {
-  Request,
-  Response,
-} from "express";
-
+import type { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 import { Admin } from "../models/Admin.js";
 
-interface AuthenticatedRequest
+interface AdminJwtPayload {
+  sub: string;
+  role: "admin";
+  iat?: number;
+  exp?: number;
+}
+
+interface AuthenticatedAdminRequest
   extends Request {
   admin?: {
     id: string;
@@ -19,22 +22,16 @@ interface AuthenticatedRequest
 }
 
 function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
+  const secret =
+    process.env.ADMIN_JWT_SECRET;
 
   if (!secret) {
     throw new Error(
-      "JWT_SECRET is not defined in environment variables."
+      "ADMIN_JWT_SECRET is not configured in environment variables."
     );
   }
 
   return secret;
-}
-
-function getJwtExpiresIn(): string {
-  return (
-    process.env.JWT_EXPIRES_IN ||
-    "1d"
-  );
 }
 
 function getCookieName(): string {
@@ -55,8 +52,12 @@ function getCookieOptions() {
     sameSite: isProduction
       ? ("none" as const)
       : ("lax" as const),
-    maxAge: 24 * 60 * 60 * 1000,
     path: "/",
+    maxAge:
+      1000 *
+      60 *
+      60 *
+      24,
   };
 }
 
@@ -68,46 +69,48 @@ export async function loginAdmin(
     const {
       email,
       password,
-    } = req.body;
+    } = req.body ?? {};
+
+    if (
+      typeof email !== "string" ||
+      typeof password !== "string"
+    ) {
+      res.status(400).json({
+        success: false,
+        message:
+          "Email and password are required.",
+      });
+
+      return;
+    }
 
     const normalizedEmail =
-      typeof email === "string"
-        ? email.trim().toLowerCase()
-        : "";
-
-    const suppliedPassword =
-      typeof password === "string"
-        ? password
-        : "";
+      email.trim().toLowerCase();
 
     if (!normalizedEmail) {
       res.status(400).json({
         success: false,
         message:
-          "Please provide your email address.",
+          "Email address is required.",
       });
 
       return;
     }
 
-    if (!suppliedPassword) {
+    if (!password) {
       res.status(400).json({
         success: false,
         message:
-          "Please provide your password.",
+          "Password is required.",
       });
 
       return;
     }
-
     const admin =
       await Admin.findOne({
         email: normalizedEmail,
-      }).select("+passwordHash");
+      });
 
-    /*
-     * Do not reveal whether the email exists.
-     */
     if (!admin) {
       res.status(401).json({
         success: false,
@@ -130,8 +133,8 @@ export async function loginAdmin(
 
     const passwordMatches =
       await bcrypt.compare(
-        suppliedPassword,
-        admin.passwordHash
+        password,
+        admin.password
       );
 
     if (!passwordMatches) {
@@ -149,12 +152,16 @@ export async function loginAdmin(
         {
           sub: admin._id.toString(),
           role: "admin",
-        },
+        } satisfies Omit<
+          AdminJwtPayload,
+          "iat" | "exp"
+        >,
         getJwtSecret(),
         {
           expiresIn:
-            getJwtExpiresIn(),
-        } as jwt.SignOptions
+            process.env.ADMIN_JWT_EXPIRES_IN ||
+            "1d",
+        }
       );
 
     res.cookie(
@@ -165,32 +172,33 @@ export async function loginAdmin(
 
     res.status(200).json({
       success: true,
-      message: "Login successful.",
+      message:
+        "Administrator login successful.",
       data: {
         admin: {
           id: admin._id.toString(),
           name: admin.name,
           email: admin.email,
-          role: admin.role,
+          role: "admin",
         },
       },
     });
   } catch (error) {
     console.error(
-      "Admin login failed:",
+      "Admin login error:",
       error
     );
 
     res.status(500).json({
       success: false,
       message:
-        "Failed to authenticate administrator.",
+        "Unable to authenticate administrator.",
     });
   }
 }
 
 export async function getCurrentAdmin(
-  req: AuthenticatedRequest,
+  req: AuthenticatedAdminRequest,
   res: Response
 ): Promise<void> {
   try {
@@ -198,7 +206,7 @@ export async function getCurrentAdmin(
       res.status(401).json({
         success: false,
         message:
-          "Authentication required.",
+          "Administrator authentication required.",
       });
 
       return;
@@ -212,53 +220,54 @@ export async function getCurrentAdmin(
     });
   } catch (error) {
     console.error(
-      "Failed to fetch current admin:",
+      "Get current admin error:",
       error
     );
 
     res.status(500).json({
       success: false,
       message:
-        "Failed to fetch administrator.",
+        "Unable to retrieve administrator account.",
     });
   }
 }
 
 export async function logoutAdmin(
-  _req: Request,
+  _req: AuthenticatedAdminRequest,
   res: Response
 ): Promise<void> {
   try {
-    const isProduction =
-      process.env.NODE_ENV ===
-      "production";
-
     res.clearCookie(
       getCookieName(),
       {
         httpOnly: true,
-        secure: isProduction,
-        sameSite: isProduction
-          ? ("none" as const)
-          : ("lax" as const),
+        secure:
+          process.env.NODE_ENV ===
+          "production",
+        sameSite:
+          process.env.NODE_ENV ===
+          "production"
+            ? ("none" as const)
+            : ("lax" as const),
         path: "/",
       }
     );
 
     res.status(200).json({
       success: true,
-      message: "Logout successful.",
+      message:
+        "Administrator logged out successfully.",
     });
   } catch (error) {
     console.error(
-      "Admin logout failed:",
+      "Admin logout error:",
       error
     );
 
     res.status(500).json({
       success: false,
       message:
-        "Failed to log out administrator.",
+        "Unable to log out administrator.",
     });
   }
 }

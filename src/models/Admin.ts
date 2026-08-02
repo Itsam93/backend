@@ -1,56 +1,53 @@
 import mongoose, {
-  Document,
-  Schema,
+  type Document,
+  type Model,
 } from "mongoose";
 
-export interface IAdmin extends Document {
+export interface IAdmin
+  extends Document {
+  name: string;
   email: string;
-  passwordHash: string;
+  password: string;
   role: "admin";
-  isActive: boolean;
-  lastLoginAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-const adminSchema = new Schema<IAdmin>(
-  {
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
-      index: true,
-    },
+const adminSchema =
+  new mongoose.Schema<IAdmin>(
+    {
+      name: {
+        type: String,
+        required: true,
+        trim: true,
+      },
 
-    passwordHash: {
-      type: String,
-      required: true,
-    },
+      email: {
+        type: String,
+        required: true,
+        unique: true,
+        lowercase: true,
+        trim: true,
+      },
 
-    role: {
-      type: String,
-      enum: ["admin"],
-      default: "admin",
-      required: true,
-    },
+      password: {
+        type: String,
+        required: true,
+      },
 
-    isActive: {
-      type: Boolean,
-      default: true,
-      index: true,
+      role: {
+        type: String,
+        enum: ["admin"],
+        default: "admin",
+      },
     },
+    {
+      timestamps: true,
+    }
+  );
 
-    lastLoginAt: {
-      type: Date,
-      default: null,
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
-
-export const Admin = mongoose.model<IAdmin>(
-  "Admin",
-  adminSchema
-);
+export const Admin: Model<IAdmin> =
+  mongoose.model<IAdmin>(
+    "Admin",
+    adminSchema
+  );
