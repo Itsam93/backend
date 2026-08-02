@@ -15,27 +15,43 @@ router.get("/test", (_req, res) => {
 router.post("/kingsform/message", async (req, res) => {
   try {
     console.log(
-      "KingsForm message webhook received:"
+      "KingsForms message webhook received:"
     );
 
     console.log(
       JSON.stringify(req.body, null, 2)
     );
 
-    const {
-      name,
-      church,
-      message,
-    } = req.body;
+    const payload = req.body;
+
+    const name =
+      payload.name ??
+      payload["Member's name"] ??
+      payload["Member Name"] ??
+      "";
+
+    const church =
+      payload.church ??
+      payload["Name of church"] ??
+      payload["Name of Church"] ??
+      "";
+
+    const message =
+      payload.message ??
+      payload["Your message"] ??
+      "";
 
     if (!name || !church || !message) {
-      res.status(400).json({
+      console.error(
+        "Incomplete KingsForms message payload:",
+        payload
+      );
+
+      return res.status(400).json({
         success: false,
         message:
-          "Name, church and message are required.",
+          "Required message fields are missing.",
       });
-
-      return;
     }
 
     const savedMessage = await Message.create({
@@ -46,93 +62,60 @@ router.post("/kingsform/message", async (req, res) => {
       submittedAt: new Date(),
     });
 
-    res.status(201).json({
+    console.log(
+      "Message saved:",
+      savedMessage._id.toString()
+    );
+
+    return res.status(200).json({
       success: true,
       message:
-        "Message submitted successfully.",
+        "Message webhook received and saved.",
       data: {
         id: savedMessage._id,
-        status: savedMessage.status,
       },
     });
   } catch (error) {
     console.error(
-      "Failed to process KingsForm message webhook:",
+      "Failed to process KingsForms message webhook:",
       error
     );
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message:
-        "Failed to process message submission.",
+        "Failed to process message webhook.",
     });
   }
 });
 
+
 router.post("/kingsform/video", async (req, res) => {
   try {
     console.log(
-      "KingsForm video webhook received:"
+      "KingsForms video webhook received:"
     );
 
     console.log(
       JSON.stringify(req.body, null, 2)
     );
 
-    const {
-      name,
-      church,
-      videoUrl,
-      fileName,
-      duration,
-    } = req.body;
-
-    if (!name || !church || !videoUrl) {
-      res.status(400).json({
-        success: false,
-        message:
-          "Name, church and videoUrl are required.",
-      });
-
-      return;
-    }
-
-    const savedVideo = await Video.create({
-      name: String(name).trim(),
-      church: String(church).trim(),
-      videoUrl: String(videoUrl).trim(),
-      fileName: fileName
-        ? String(fileName).trim()
-        : "",
-      duration:
-        duration !== undefined &&
-        duration !== null &&
-        duration !== ""
-          ? Number(duration)
-          : null,
-      status: "pending",
-      submittedAt: new Date(),
-    });
-
-    res.status(201).json({
+    return res.status(200).json({
       success: true,
       message:
-        "Video submitted successfully.",
-      data: {
-        id: savedVideo._id,
-        status: savedVideo.status,
-      },
+        "Video webhook received.",
+      received: req.body,
     });
   } catch (error) {
     console.error(
-      "Failed to process KingsForm video webhook:",
+      "Failed to process KingsForms video webhook:",
       error
     );
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message:
-        "Failed to process video submission.",
+        "Failed to process video webhook.",
     });
   }
 });
