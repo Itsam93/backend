@@ -49,10 +49,10 @@ function getJwtExpiresIn(): SignOptions["expiresIn"] {
   return expiresIn as SignOptions["expiresIn"];
 }
 
+
 function getCookieOptions() {
   const isProduction =
-    process.env.NODE_ENV ===
-    "production";
+    process.env.NODE_ENV === "production";
 
   return {
     httpOnly: true,
@@ -72,6 +72,7 @@ function getCookieOptions() {
       24,
   };
 }
+
 
 export async function loginAdmin(
   req: Request,
@@ -109,7 +110,7 @@ export async function loginAdmin(
       return;
     }
 
-    if (!password) {
+    if (!password.trim()) {
       res.status(400).json({
         success: false,
         message:
@@ -122,9 +123,7 @@ export async function loginAdmin(
     const admin =
       await Admin.findOne({
         email: normalizedEmail,
-      }).select(
-        "+password"
-      );
+      }).select("+password");
 
     if (!admin) {
       res.status(401).json({
@@ -146,6 +145,23 @@ export async function loginAdmin(
       return;
     }
 
+    if (
+      !admin.password ||
+      typeof admin.password !== "string"
+    ) {
+      console.error(
+        `Admin account ${admin.email} does not have a valid password hash.`
+      );
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Administrator account credentials are not configured correctly.",
+      });
+
+      return;
+    }
+
     const passwordMatches =
       await bcrypt.compare(
         password,
@@ -161,6 +177,7 @@ export async function loginAdmin(
 
       return;
     }
+
 
     const token = jwt.sign(
       {
@@ -207,6 +224,7 @@ export async function loginAdmin(
   }
 }
 
+
 export async function getCurrentAdmin(
   req: AuthenticatedAdminRequest,
   res: Response
@@ -230,13 +248,12 @@ export async function getCurrentAdmin(
 }
 
 export async function logoutAdmin(
-  _req: AuthenticatedAdminRequest,
+  _req: Request,
   res: Response
 ): Promise<void> {
   try {
     const isProduction =
-      process.env.NODE_ENV ===
-      "production";
+      process.env.NODE_ENV === "production";
 
     res.clearCookie(
       getCookieName(),

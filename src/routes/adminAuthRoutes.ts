@@ -12,7 +12,6 @@ import {
 
 const router = Router();
 
-
 router.post(
   "/login",
   loginAdmin
