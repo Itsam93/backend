@@ -5,6 +5,8 @@ import type {
 
 import { Message } from "../models/Message.js";
 import { Video } from "../models/Video.js";
+import cloudinary from "../config/cloudinary.js";
+
 
 function parsePositiveInteger(
   value: unknown,
