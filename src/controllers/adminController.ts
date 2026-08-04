@@ -309,8 +309,11 @@ export async function approveMessage(
     }
 
     const message =
-      await Message.findByIdAndUpdate(
-        id,
+      await Message.findOneAndUpdate(
+        {
+          _id: id,
+          status: "pending",
+        },
         {
           $set: {
             status: "approved",
@@ -324,10 +327,25 @@ export async function approveMessage(
       ).lean();
 
     if (!message) {
-      res.status(404).json({
+      const existingMessage =
+        await Message.findById(id)
+          .select("_id status")
+          .lean();
+
+      if (!existingMessage) {
+        res.status(404).json({
+          success: false,
+          message:
+            "Message not found.",
+        });
+
+        return;
+      }
+
+      res.status(409).json({
         success: false,
         message:
-          "Message not found.",
+          `Message has already been ${existingMessage.status}.`,
       });
 
       return;
@@ -372,8 +390,11 @@ export async function rejectMessage(
     }
 
     const message =
-      await Message.findByIdAndUpdate(
-        id,
+      await Message.findOneAndUpdate(
+        {
+          _id: id,
+          status: "pending",
+        },
         {
           $set: {
             status: "rejected",
@@ -387,10 +408,25 @@ export async function rejectMessage(
       ).lean();
 
     if (!message) {
-      res.status(404).json({
+      const existingMessage =
+        await Message.findById(id)
+          .select("_id status")
+          .lean();
+
+      if (!existingMessage) {
+        res.status(404).json({
+          success: false,
+          message:
+            "Message not found.",
+        });
+
+        return;
+      }
+
+      res.status(409).json({
         success: false,
         message:
-          "Message not found.",
+          `Message has already been ${existingMessage.status}.`,
       });
 
       return;
@@ -435,8 +471,11 @@ export async function approveVideo(
     }
 
     const video =
-      await Video.findByIdAndUpdate(
-        id,
+      await Video.findOneAndUpdate(
+        {
+          _id: id,
+          status: "pending",
+        },
         {
           $set: {
             status: "approved",
@@ -450,10 +489,25 @@ export async function approveVideo(
       ).lean();
 
     if (!video) {
-      res.status(404).json({
+      const existingVideo =
+        await Video.findById(id)
+          .select("_id status")
+          .lean();
+
+      if (!existingVideo) {
+        res.status(404).json({
+          success: false,
+          message:
+            "Video not found.",
+        });
+
+        return;
+      }
+
+      res.status(409).json({
         success: false,
         message:
-          "Video not found.",
+          `Video has already been ${existingVideo.status}.`,
       });
 
       return;
@@ -498,8 +552,11 @@ export async function rejectVideo(
     }
 
     const video =
-      await Video.findByIdAndUpdate(
-        id,
+      await Video.findOneAndUpdate(
+        {
+          _id: id,
+          status: "pending",
+        },
         {
           $set: {
             status: "rejected",
@@ -513,10 +570,25 @@ export async function rejectVideo(
       ).lean();
 
     if (!video) {
-      res.status(404).json({
+      const existingVideo =
+        await Video.findById(id)
+          .select("_id status")
+          .lean();
+
+      if (!existingVideo) {
+        res.status(404).json({
+          success: false,
+          message:
+            "Video not found.",
+        });
+
+        return;
+      }
+
+      res.status(409).json({
         success: false,
         message:
-          "Video not found.",
+          `Video has already been ${existingVideo.status}.`,
       });
 
       return;
@@ -615,7 +687,7 @@ export async function deleteVideo(
     }
 
     const video =
-      await Video.findByIdAndDelete(id)
+      await Video.findById(id)
         .lean();
 
     if (!video) {
@@ -627,6 +699,51 @@ export async function deleteVideo(
 
       return;
     }
+
+    /*
+     * -------------------------------------------------------
+     * DELETE FROM CLOUDINARY
+     * -------------------------------------------------------
+     *
+     * Only attempt this when a publicId exists.
+     */
+    if (video.publicId) {
+      try {
+        await cloudinary.uploader.destroy(
+          video.publicId,
+          {
+            resource_type: "video",
+          }
+        );
+      } catch (cloudinaryError) {
+        console.error(
+          "Failed to delete video from Cloudinary:",
+          cloudinaryError
+        );
+
+        /*
+         * Do not delete the database record if the
+         * Cloudinary deletion failed.
+         *
+         * This prevents the database from saying the
+         * video is gone while the actual media remains.
+         */
+        res.status(500).json({
+          success: false,
+          message:
+            "Failed to remove video from storage. The video was not deleted.",
+        });
+
+        return;
+      }
+    }
+
+    /*
+     * -------------------------------------------------------
+     * DELETE DATABASE RECORD
+     * -------------------------------------------------------
+     */
+    await Video.findByIdAndDelete(id);
 
     res.status(200).json({
       success: true,

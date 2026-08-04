@@ -4,9 +4,11 @@ import {
   getAdminMessages,
   approveMessage,
   rejectMessage,
+  deleteMessage,
   getAdminVideos,
   approveVideo,
   rejectVideo,
+  deleteVideo,
 } from "../controllers/adminController.js";
 
 import {
@@ -34,6 +36,11 @@ router.patch(
   rejectMessage
 );
 
+router.delete(
+  "/messages/:id",
+  deleteMessage
+);
+
 router.get(
   "/videos",
   getAdminVideos
@@ -47,6 +54,11 @@ router.patch(
 router.patch(
   "/videos/:id/reject",
   rejectVideo
+);
+
+router.delete(
+  "/videos/:id",
+  deleteVideo
 );
 
 export default router;

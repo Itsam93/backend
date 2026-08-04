@@ -10,6 +10,7 @@ import cookieParser from "cookie-parser";
 
 import messageRoutes from "./routes/messageRoutes.js";
 import videoRoutes from "./routes/videoRoutes.js";
+import celebrationRoutes from "./routes/celebrationRoutes";
 import webhookRoutes from "./routes/webhookRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import adminAuthRoutes from "./routes/adminAuthRoutes.js";
@@ -111,6 +112,11 @@ app.use(
 app.use(
   "/api/videos",
   videoRoutes
+);
+
+app.use(
+  "/api/celebration",
+  celebrationRoutes
 );
 
 app.use(
