@@ -4,6 +4,7 @@ import {
   deleteApprovedVideo,
   getLatestApprovedVideo,
   getRandomApprovedVideo,
+  getApprovedVideos,
   uploadVideo,
 } from "../controllers/videoController.js";
 
@@ -39,9 +40,11 @@ router.get(
   getLatestApprovedVideo
 );
 
-/**
- * Submit a video for moderation.
- */
+router.get(
+  "/approved",
+  getApprovedVideos
+);
+
 router.post(
   "/",
   uploadVideoMiddleware.single(
@@ -50,17 +53,7 @@ router.post(
   uploadVideo
 );
 
-/**
- * =========================================================
- * ADMIN
- * =========================================================
- */
 
-/**
- * Delete an approved video.
- *
- * Requires administrator authentication.
- */
 router.delete(
   "/:id",
   requireAdminAuth,

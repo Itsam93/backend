@@ -13,14 +13,6 @@ import { Video } from "../models/Video.js";
 
 const MAX_VIDEO_DURATION = 30;
 
-/**
- * =========================================================
- * GET RANDOM APPROVED VIDEO
- * =========================================================
- *
- * Used by the public celebration hero to rotate
- * approved video messages.
- */
 export async function getRandomApprovedVideo(
   _req: Request,
   res: Response
@@ -58,21 +50,6 @@ export async function getRandomApprovedVideo(
   }
 }
 
-/**
- * =========================================================
- * GET LATEST APPROVED VIDEO
- * =========================================================
- *
- * Returns the most recently approved video.
- *
- * This is useful for the public hero when we want a newly
- * approved submission to become visible without requiring
- * the visitor to refresh the page.
- *
- * Sorting by reviewedAt ensures that approval time,
- * rather than original submission time, determines which
- * video is considered the newest approved video.
- */
 export async function getLatestApprovedVideo(
   _req: Request,
   res: Response
@@ -106,17 +83,6 @@ export async function getLatestApprovedVideo(
   }
 }
 
-/**
- * =========================================================
- * UPLOAD VIDEO
- * =========================================================
- *
- * Public users submit celebration videos.
- *
- * Every uploaded video starts as "pending".
- * It must be approved by an administrator before
- * it can appear publicly.
- */
 export async function uploadVideo(
   req: Request,
   res: Response
@@ -133,12 +99,6 @@ export async function uploadVideo(
     } = req.body;
 
     const file = req.file;
-
-    /**
-     * -------------------------------------------------------
-     * VALIDATE NAME
-     * -------------------------------------------------------
-     */
 
     const trimmedName =
       typeof name === "string"
@@ -165,12 +125,6 @@ export async function uploadVideo(
       return;
     }
 
-    /**
-     * -------------------------------------------------------
-     * VALIDATE CHURCH
-     * -------------------------------------------------------
-     */
-
     const trimmedChurch =
       typeof church === "string"
         ? church.trim()
@@ -196,12 +150,6 @@ export async function uploadVideo(
       return;
     }
 
-    /**
-     * -------------------------------------------------------
-     * VALIDATE FILE
-     * -------------------------------------------------------
-     */
-
     if (!file) {
       res.status(400).json({
         success: false,
@@ -211,12 +159,6 @@ export async function uploadVideo(
 
       return;
     }
-
-    /**
-     * -------------------------------------------------------
-     * VALIDATE DURATION
-     * -------------------------------------------------------
-     */
 
     const parsedDuration =
       Number(duration);
@@ -248,12 +190,6 @@ export async function uploadVideo(
 
       return;
     }
-
-    /**
-     * -------------------------------------------------------
-     * UPLOAD TO CLOUDINARY
-     * -------------------------------------------------------
-     */
 
     const uploadResult =
       await new Promise<UploadApiResponse>(
@@ -296,14 +232,6 @@ export async function uploadVideo(
               }
             );
 
-          /**
-           * Cloudinary's TypeScript declaration can
-           * sometimes expose UploadStream without the
-           * Node WritableStream methods.
-           *
-           * The runtime object is a writable stream,
-           * so we explicitly narrow it here.
-           */
           const writableStream =
             uploadStream as unknown as {
               end: (
@@ -317,26 +245,9 @@ export async function uploadVideo(
         }
       );
 
-    /**
-     * Keep track of the uploaded Cloudinary ID.
-     *
-     * If MongoDB creation fails afterwards, the
-     * catch block will remove the orphaned video.
-     */
     uploadedPublicId =
       uploadResult.public_id;
 
-    /**
-     * -------------------------------------------------------
-     * CREATE DATABASE RECORD
-     * -------------------------------------------------------
-     *
-     * IMPORTANT:
-     *
-     * New videos are ALWAYS pending.
-     *
-     * The admin must explicitly approve them.
-     */
     const video =
       await Video.create({
         name: trimmedName,
@@ -362,12 +273,6 @@ export async function uploadVideo(
 
         reviewedAt: null,
       });
-
-    /**
-     * -------------------------------------------------------
-     * SUCCESS RESPONSE
-     * -------------------------------------------------------
-     */
 
     res.status(201).json({
       success: true,
@@ -407,10 +312,6 @@ export async function uploadVideo(
       error
     );
 
-    /**
-     * If Cloudinary succeeded but MongoDB failed,
-     * remove the uploaded video from Cloudinary.
-     */
     if (uploadedPublicId) {
       try {
         await cloudinary.uploader.destroy(
@@ -450,22 +351,6 @@ export async function uploadVideo(
   }
 }
 
-
-/**
- * =========================================================
- * DELETE APPROVED VIDEO
- * =========================================================
- *
- * Administrator only.
- *
- * Deletes the approved video from:
- *
- * 1. Cloudinary
- * 2. MongoDB
- *
- * This prevents orphaned video files from remaining
- * in Cloudinary after the database record is removed.
- */
 export async function deleteApprovedVideo(
   req: Request,
   res: Response
@@ -483,12 +368,6 @@ export async function deleteApprovedVideo(
       return;
     }
 
-    /**
-     * -------------------------------------------------------
-     * FIND APPROVED VIDEO
-     * -------------------------------------------------------
-     */
-
     const video =
       await Video.findOne({
         _id: id,
@@ -505,15 +384,6 @@ export async function deleteApprovedVideo(
       return;
     }
 
-    /**
-     * -------------------------------------------------------
-     * DELETE CLOUDINARY ASSET
-     * -------------------------------------------------------
-     *
-     * Only attempt this if the database record contains
-     * a Cloudinary public ID.
-     */
-
     if (video.publicId) {
       try {
         const cloudinaryResult =
@@ -524,17 +394,6 @@ export async function deleteApprovedVideo(
             }
           );
 
-        /**
-         * Cloudinary normally returns:
-         *
-         * {
-         *   result: "ok"
-         * }
-         *
-         * If the asset has already disappeared,
-         * "not found" is acceptable because the desired
-         * final state has already been achieved.
-         */
 
         if (
           cloudinaryResult.result !==
@@ -571,21 +430,10 @@ export async function deleteApprovedVideo(
       }
     }
 
-    /**
-     * -------------------------------------------------------
-     * DELETE DATABASE RECORD
-     * -------------------------------------------------------
-     */
 
     await Video.deleteOne({
       _id: video._id,
     });
-
-    /**
-     * -------------------------------------------------------
-     * SUCCESS
-     * -------------------------------------------------------
-     */
 
     res.status(200).json({
       success: true,
@@ -605,6 +453,41 @@ export async function deleteApprovedVideo(
       success: false,
       message:
         "Failed to delete approved video.",
+    });
+  }
+}
+
+export async function getApprovedVideos(
+  _req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const videos = await Video.find({
+      status: "approved",
+    })
+      .select(
+        "_id name church videoUrl createdAt duration"
+      )
+      .sort({
+        reviewedAt: -1,
+        createdAt: -1,
+      })
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      data: videos,
+    });
+  } catch (error) {
+    console.error(
+      "Failed to fetch approved videos:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message:
+        "Failed to fetch approved videos.",
     });
   }
 }

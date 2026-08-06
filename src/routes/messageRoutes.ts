@@ -5,6 +5,7 @@ import {
   deleteApprovedMessage,
   getLatestApprovedMessage,
   getRandomApprovedMessage,
+  getApprovedMessages,
 } from "../controllers/messageController.js";
 
 import {
@@ -13,47 +14,27 @@ import {
 
 const router = Router();
 
-/**
- * =========================================================
- * PUBLIC
- * =========================================================
- */
-
-/**
- * Returns a random approved message.
- */
 router.get(
   "/random",
   getRandomApprovedMessage
 );
 
-/**
- * Returns the most recently approved message.
- */
 router.get(
   "/latest",
   getLatestApprovedMessage
 );
 
-/**
- * Submit a message for moderation.
- */
+router.get(
+  "/approved",
+  getApprovedMessages
+);
+
 router.post(
   "/",
   createMessage
 );
 
-/**
- * =========================================================
- * ADMIN
- * =========================================================
- */
 
-/**
- * Delete an approved message.
- *
- * Requires administrator authentication.
- */
 router.delete(
   "/:id",
   requireAdminAuth,
