@@ -25,15 +25,14 @@ const router = Router();
 
 /**
  * ============================================================
- * PUBLIC ROUTES
+ * PUBLIC LIVE STREAM
  * ============================================================
  */
 
 /**
  * GET /api/live-stream
  *
- * Returns the stream currently selected for playback
- * by the public website.
+ * Returns the stream currently selected for public playback.
  */
 router.get(
   "/",
@@ -43,8 +42,8 @@ router.get(
 /**
  * GET /api/live-stream/pool
  *
- * Returns the public representation of all 12
- * Cloudinary streams.
+ * Returns the public representation of all
+ * registered streams.
  */
 router.get(
   "/pool",
@@ -54,7 +53,7 @@ router.get(
 /**
  * GET /api/live-stream/sequence/:sequence
  *
- * Get a stream by its rotation sequence.
+ * Returns a stream by its rotation sequence.
  */
 router.get(
   "/sequence/:sequence",
@@ -64,7 +63,7 @@ router.get(
 /**
  * GET /api/live-stream/next/:sequence
  *
- * Get the next stream in the rotation pool.
+ * Returns the next stream in the rotation pool.
  */
 router.get(
   "/next/:sequence",
@@ -81,9 +80,10 @@ router.get(
  * GET /api/live-stream/rotation
  *
  * Returns:
- * - current active stream
+ * - active stream
  * - next stream
- * - rotation information
+ * - rotation status
+ * - expiry information
  */
 router.get(
   "/rotation",
@@ -93,7 +93,7 @@ router.get(
 /**
  * GET /api/live-stream/rotation/due
  *
- * Determines whether the current stream is due
+ * Determines whether the active stream is due
  * for rotation.
  */
 router.get(
@@ -103,7 +103,33 @@ router.get(
 
 /**
  * ============================================================
- * ADMIN / OPERATIONS
+ * HEALTH MONITORING
+ * ============================================================
+ */
+
+/**
+ * GET /api/live-stream/health
+ *
+ * Checks the currently active stream.
+ */
+router.get(
+  "/health",
+  checkActiveStreamHealthController
+);
+
+/**
+ * GET /api/live-stream/health/all
+ *
+ * Checks all registered Cloudinary streams.
+ */
+router.get(
+  "/health/all",
+  checkAllStreamHealthController
+);
+
+/**
+ * ============================================================
+ * ADMIN — STREAM QUERIES
  * ============================================================
  */
 
@@ -129,15 +155,18 @@ router.get(
 
 /**
  * ============================================================
- * STREAM ACTIVATION
+ * ADMIN — STREAM ACTIVATION
  * ============================================================
  */
 
 /**
  * POST /api/live-stream/:streamId/activate
  *
- * Marks a Cloudinary stream as the stream currently
- * used by the website.
+ * Makes the specified stream the active website stream.
+ *
+ * IMPORTANT:
+ * This does NOT start OBS or Cloudinary ingestion.
+ * It only changes which stream the website uses.
  */
 router.post(
   "/:streamId/activate",
@@ -147,7 +176,7 @@ router.post(
 /**
  * POST /api/live-stream/:streamId/deactivate
  *
- * Removes a stream from the active website position.
+ * Removes the specified stream from the active position.
  */
 router.post(
   "/:streamId/deactivate",
@@ -156,7 +185,7 @@ router.post(
 
 /**
  * ============================================================
- * STREAM STATUS
+ * ADMIN — STREAM STATUS
  * ============================================================
  */
 
@@ -203,7 +232,7 @@ router.post(
 /**
  * POST /api/live-stream/:streamId/error
  *
- * Marks a stream as failed.
+ * Marks a stream as having an error.
  *
  * Optional body:
  *
@@ -218,38 +247,14 @@ router.post(
 
 /**
  * ============================================================
- * HEALTH MONITORING
- * ============================================================
- */
-
-/**
- * GET /api/live-stream/health
- *
- * Checks the currently active stream.
- */
-router.get(
-  "/health",
-  checkActiveStreamHealthController
-);
-
-/**
- * GET /api/live-stream/health/all
- *
- * Checks all Cloudinary streams.
- */
-router.get(
-  "/health/all",
-  checkAllStreamHealthController
-);
-
-/**
- * ============================================================
- * ROTATION MANAGEMENT
+ * ADMIN — ROTATION MANAGEMENT
  * ============================================================
  */
 
 /**
  * POST /api/live-stream/:streamId/prepare-rotation
+ *
+ * Prepares a stream for rotation.
  *
  * Optional body:
  *

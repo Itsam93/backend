@@ -52,6 +52,9 @@ function getStreamId(
 
 /**
  * Extract and validate a stream sequence.
+ *
+ * Valid range:
+ * 1 - MAX_STREAMS
  */
 function getSequence(
   value: string | string[] | undefined
@@ -79,14 +82,16 @@ function getSequence(
  * ============================================================
  *
  * GET /api/live-stream
+ *
+ * Returns the stream currently selected for
+ * public website playback.
  */
 export async function getPublicLiveStreamController(
   _req: Request,
   res: Response
 ) {
   try {
-    const result =
-      await getPublicLiveStream();
+    const result = await getPublicLiveStream();
 
     return res.status(200).json({
       success: true,
@@ -112,14 +117,16 @@ export async function getPublicLiveStreamController(
  * ============================================================
  *
  * GET /api/live-stream/pool
+ *
+ * Returns the safe public representation of
+ * all configured streams.
  */
 export async function getPublicStreamPoolController(
   _req: Request,
   res: Response
 ) {
   try {
-    const streams =
-      await getPublicStreamPool();
+    const streams = await getPublicStreamPool();
 
     return res.status(200).json({
       success: true,
@@ -154,8 +161,7 @@ export async function getAllLiveStreamsController(
   res: Response
 ) {
   try {
-    const streams =
-      await getAllLiveStreams();
+    const streams = await getAllLiveStreams();
 
     return res.status(200).json({
       success: true,
@@ -190,10 +196,9 @@ export async function getLiveStreamBySequenceController(
   res: Response
 ) {
   try {
-    const sequence =
-      getSequence(
-        req.params.sequence
-      );
+    const sequence = getSequence(
+      req.params.sequence
+    );
 
     if (sequence === null) {
       return res.status(400).json({
@@ -204,9 +209,7 @@ export async function getLiveStreamBySequenceController(
     }
 
     const stream =
-      await getLiveStreamBySequence(
-        sequence
-      );
+      await getLiveStreamBySequence(sequence);
 
     if (!stream) {
       return res.status(404).json({
@@ -278,20 +281,20 @@ export async function getActiveLiveStreamController(
  *
  * POST /api/live-stream/:streamId/activate
  *
- * IMPORTANT:
- * This changes the website's active stream.
+ * Changes the stream served to website viewers.
  *
- * It does NOT start OBS or Cloudinary ingestion.
+ * IMPORTANT:
+ * This does NOT start OBS.
+ * This does NOT start Cloudinary ingestion.
  */
 export async function activateLiveStreamController(
   req: Request,
   res: Response
 ) {
   try {
-    const streamId =
-      getStreamId(
-        req.params.streamId
-      );
+    const streamId = getStreamId(
+      req.params.streamId
+    );
 
     if (!streamId) {
       return res.status(400).json({
@@ -302,9 +305,7 @@ export async function activateLiveStreamController(
     }
 
     const stream =
-      await activateLiveStream(
-        streamId
-      );
+      await activateLiveStream(streamId);
 
     return res.status(200).json({
       success: true,
@@ -344,10 +345,9 @@ export async function deactivateLiveStreamController(
   res: Response
 ) {
   try {
-    const streamId =
-      getStreamId(
-        req.params.streamId
-      );
+    const streamId = getStreamId(
+      req.params.streamId
+    );
 
     if (!streamId) {
       return res.status(400).json({
@@ -358,9 +358,7 @@ export async function deactivateLiveStreamController(
     }
 
     const stream =
-      await deactivateLiveStream(
-        streamId
-      );
+      await deactivateLiveStream(streamId);
 
     if (!stream) {
       return res.status(404).json({
@@ -404,10 +402,9 @@ export async function markStreamStartingController(
   res: Response
 ) {
   try {
-    const streamId =
-      getStreamId(
-        req.params.streamId
-      );
+    const streamId = getStreamId(
+      req.params.streamId
+    );
 
     if (!streamId) {
       return res.status(400).json({
@@ -418,9 +415,7 @@ export async function markStreamStartingController(
     }
 
     const stream =
-      await markStreamStarting(
-        streamId
-      );
+      await markStreamStarting(streamId);
 
     if (!stream) {
       return res.status(404).json({
@@ -464,10 +459,9 @@ export async function markStreamLiveController(
   res: Response
 ) {
   try {
-    const streamId =
-      getStreamId(
-        req.params.streamId
-      );
+    const streamId = getStreamId(
+      req.params.streamId
+    );
 
     if (!streamId) {
       return res.status(400).json({
@@ -478,9 +472,7 @@ export async function markStreamLiveController(
     }
 
     const stream =
-      await markStreamLive(
-        streamId
-      );
+      await markStreamLive(streamId);
 
     if (!stream) {
       return res.status(404).json({
@@ -524,10 +516,9 @@ export async function markStreamTransitioningController(
   res: Response
 ) {
   try {
-    const streamId =
-      getStreamId(
-        req.params.streamId
-      );
+    const streamId = getStreamId(
+      req.params.streamId
+    );
 
     if (!streamId) {
       return res.status(400).json({
@@ -584,10 +575,9 @@ export async function markStreamEndedController(
   res: Response
 ) {
   try {
-    const streamId =
-      getStreamId(
-        req.params.streamId
-      );
+    const streamId = getStreamId(
+      req.params.streamId
+    );
 
     if (!streamId) {
       return res.status(400).json({
@@ -598,9 +588,7 @@ export async function markStreamEndedController(
     }
 
     const stream =
-      await markStreamEnded(
-        streamId
-      );
+      await markStreamEnded(streamId);
 
     if (!stream) {
       return res.status(404).json({
@@ -649,10 +637,9 @@ export async function markStreamErrorController(
   res: Response
 ) {
   try {
-    const streamId =
-      getStreamId(
-        req.params.streamId
-      );
+    const streamId = getStreamId(
+      req.params.streamId
+    );
 
     if (!streamId) {
       return res.status(400).json({
@@ -663,8 +650,7 @@ export async function markStreamErrorController(
     }
 
     const errorValue =
-      typeof req.body?.error ===
-        "string" &&
+      typeof req.body?.error === "string" &&
       req.body.error.trim().length > 0
         ? req.body.error.trim()
         : "Unknown live-stream error.";
@@ -710,7 +696,10 @@ export async function markStreamErrorController(
  * HEALTH CHECK — ACTIVE STREAM
  * ============================================================
  *
- * POST /api/live-stream/health
+ * GET /api/live-stream/health
+ *
+ * Health checks are read-only, therefore this endpoint
+ * intentionally uses GET.
  */
 export async function checkActiveStreamHealthController(
   _req: Request,
@@ -760,7 +749,10 @@ export async function checkActiveStreamHealthController(
  * HEALTH CHECK — ALL STREAMS
  * ============================================================
  *
- * POST /api/live-stream/health/all
+ * GET /api/live-stream/health/all
+ *
+ * IMPORTANT:
+ * This MUST be registered as GET in the routes file.
  */
 export async function checkAllStreamHealthController(
   _req: Request,
@@ -772,21 +764,18 @@ export async function checkAllStreamHealthController(
 
     const failed =
       results.filter(
-        (result) =>
-          !result.success
+        (result) => !result.success
       );
 
     return res.status(200).json({
       success: true,
       data: {
         results,
-        total:
-          results.length,
+        total: results.length,
         healthy:
           results.length -
           failed.length,
-        failed:
-          failed.length,
+        failed: failed.length,
       },
     });
   } catch (error) {
@@ -820,10 +809,9 @@ export async function prepareStreamForRotationController(
   res: Response
 ) {
   try {
-    const streamId =
-      getStreamId(
-        req.params.streamId
-      );
+    const streamId = getStreamId(
+      req.params.streamId
+    );
 
     if (!streamId) {
       return res.status(400).json({
@@ -837,20 +825,14 @@ export async function prepareStreamForRotationController(
       req.body?.rotationMinutes;
 
     const rotationMinutes =
-      requestedMinutes ===
-      undefined
+      requestedMinutes === undefined
         ? DEFAULT_ROTATION_MINUTES
-        : Number(
-            requestedMinutes
-          );
+        : Number(requestedMinutes);
 
     if (
-      !Number.isFinite(
-        rotationMinutes
-      ) ||
+      !Number.isFinite(rotationMinutes) ||
       rotationMinutes <= 0 ||
-      rotationMinutes >=
-        MAX_RUNTIME_MINUTES
+      rotationMinutes >= MAX_RUNTIME_MINUTES
     ) {
       return res.status(400).json({
         success: false,
@@ -942,8 +924,7 @@ export async function getStreamDueForRotationController(
     return res.status(200).json({
       success: true,
       data: {
-        due:
-          stream !== null,
+        due: stream !== null,
         stream,
       },
     });
@@ -973,10 +954,9 @@ export async function getNextLiveStreamController(
   res: Response
 ) {
   try {
-    const sequence =
-      getSequence(
-        req.params.sequence
-      );
+    const sequence = getSequence(
+      req.params.sequence
+    );
 
     if (sequence === null) {
       return res.status(400).json({
@@ -987,9 +967,7 @@ export async function getNextLiveStreamController(
     }
 
     const stream =
-      await getNextLiveStream(
-        sequence
-      );
+      await getNextLiveStream(sequence);
 
     if (!stream) {
       return res.status(404).json({

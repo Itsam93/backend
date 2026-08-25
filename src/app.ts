@@ -14,20 +14,9 @@ import celebrationRoutes from "./routes/celebrationRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import adminAuthRoutes from "./routes/adminAuthRoutes.js";
 import liveStreamRoutes from "./routes/liveStreamRoutes.js";
-
-/**
- * ============================================================
- * APPLICATION
- * ============================================================
- */
+import cloudinaryLiveStreamRoutes from "./routes/cloudinaryLiveStreamRoutes.js";
 
 const app = express();
-
-/**
- * ============================================================
- * SECURITY HEADERS
- * ============================================================
- */
 
 app.use(
   helmet({
@@ -37,32 +26,44 @@ app.use(
   })
 );
 
-/**
- * ============================================================
- * CORS
- * ============================================================
- *
- * The frontend origin can be configured through CLIENT_URL.
- *
- * When CLIENT_URL is not configured, origin:true allows the
- * requesting origin. This is useful during local development.
- */
-
-const configuredClientUrl =
-  process.env.CLIENT_URL?.trim();
+const configuredClientUrls =
+  process.env.CLIENT_URL
+    ?.split(",")
+    .map((url) => url.trim())
+    .filter(Boolean) ?? [];
 
 app.use(
   cors({
-    origin: configuredClientUrl || true,
+    origin:
+      configuredClientUrls.length === 0
+        ? true
+        : (
+            origin,
+            callback
+          ) => {
+            if (!origin) {
+              callback(null, true);
+              return;
+            }
+
+            if (
+              configuredClientUrls.includes(
+                origin
+              )
+            ) {
+              callback(null, true);
+              return;
+            }
+
+            callback(
+              new Error(
+                `CORS policy blocked origin: ${origin}`
+              )
+            );
+          },
     credentials: true,
   })
 );
-
-/**
- * ============================================================
- * REQUEST PARSERS
- * ============================================================
- */
 
 app.use(cookieParser());
 
@@ -79,21 +80,7 @@ app.use(
   })
 );
 
-/**
- * ============================================================
- * REQUEST LOGGING
- * ============================================================
- */
-
 app.use(morgan("dev"));
-
-/**
- * ============================================================
- * HEALTH CHECK
- * ============================================================
- *
- * GET /api/health
- */
 
 app.get(
   "/api/health",
@@ -104,87 +91,45 @@ app.get(
     return res.status(200).json({
       success: true,
       message: "Backend is running.",
+      timestamp: new Date().toISOString(),
     });
   }
 );
 
-/**
- * ============================================================
- * PUBLIC API ROUTES
- * ============================================================
- */
-
-/**
- * Celebration messages.
- *
- * /api/messages/*
- */
 app.use(
   "/api/messages",
   messageRoutes
 );
 
-/**
- * Celebration videos.
- *
- * /api/videos/*
- */
 app.use(
   "/api/videos",
   videoRoutes
 );
 
-/**
- * Celebration content.
- *
- * /api/celebration/*
- */
 app.use(
   "/api/celebration",
   celebrationRoutes
 );
 
-/**
- * Live-stream API.
- *
- * /api/live-stream/*
- */
 app.use(
   "/api/live-stream",
   liveStreamRoutes
 );
 
-/**
- * ============================================================
- * ADMIN AUTHENTICATION
- * ============================================================
- *
- * /api/admin/auth/*
- */
+app.use(
+  "/api/live-stream",
+  cloudinaryLiveStreamRoutes
+);
+
 app.use(
   "/api/admin/auth",
   adminAuthRoutes
 );
 
-/**
- * ============================================================
- * ADMIN API
- * ============================================================
- *
- * /api/admin/*
- */
 app.use(
   "/api/admin",
   adminRoutes
 );
-
-/**
- * ============================================================
- * 404 HANDLER
- * ============================================================
- *
- * Any request that reaches this point did not match a route.
- */
 
 app.use(
   (
@@ -197,14 +142,6 @@ app.use(
     });
   }
 );
-
-/**
- * ============================================================
- * GLOBAL ERROR HANDLER
- * ============================================================
- *
- * This must remain the final middleware.
- */
 
 app.use(
   (
@@ -224,7 +161,7 @@ app.use(
 
     const message =
       process.env.NODE_ENV ===
-        "production"
+      "production"
         ? "An unexpected server error occurred."
         : error instanceof Error
           ? error.message
@@ -236,11 +173,5 @@ app.use(
     });
   }
 );
-
-/**
- * ============================================================
- * EXPORT
- * ============================================================
- */
 
 export { app };

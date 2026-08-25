@@ -3,11 +3,6 @@ import LiveStream, {
   type LiveStreamStatus,
 } from "../models/LiveStream.js";
 
-/**
- * ============================================================
- * CONSTANTS
- * ============================================================
- */
 
 export const MAX_STREAMS = 12;
 
@@ -15,14 +10,8 @@ export const MAX_RUNTIME_MINUTES = 180;
 
 export const DEFAULT_ROTATION_MINUTES = 170;
 
-const DEFAULT_TITLE =
-  "24 Hours ZP Celebration";
+const DEFAULT_TITLE = "24 Hours ZP Celebration";
 
-/**
- * ============================================================
- * TYPES
- * ============================================================
- */
 
 export interface CloudinaryLiveStream {
   id: string;
@@ -63,27 +52,14 @@ export interface CloudinaryStreamStatus {
   hlsUrl: string | null;
 }
 
-/**
- * ============================================================
- * CLOUDINARY API CONFIGURATION
- * ============================================================
- */
 
 const CLOUDINARY_API_BASE =
   "https://api.cloudinary.com/v1_1";
 
-/**
- * ============================================================
- * CLOUDINARY API HELPERS
- * ============================================================
- */
 
-/**
- * Return the configured Cloudinary cloud name.
- */
 function getCloudName(): string {
   const cloudName =
-    process.env.CLOUDINARY_CLOUD_NAME;
+    process.env.CLOUDINARY_CLOUD_NAME?.trim();
 
   if (!cloudName) {
     throw new Error(
@@ -94,70 +70,68 @@ function getCloudName(): string {
   return cloudName;
 }
 
-/**
- * Build a Cloudinary Admin API URL.
- */
 function getCloudinaryApiUrl(
   path: string
 ): string {
-  const cloudName =
-    getCloudName();
+  const cloudName = getCloudName();
 
-  return `${CLOUDINARY_API_BASE}/${cloudName}${path}`;
+  const normalizedPath = path.startsWith("/")
+    ? path
+    : `/${path}`;
+
+  return `${CLOUDINARY_API_BASE}/${cloudName}${normalizedPath}`;
 }
 
-/**
- * Build the HTTP Basic authentication header
- * required by the Cloudinary Admin API.
- */
 function getCloudinaryAuthHeader(): string {
   const apiKey =
-    process.env.CLOUDINARY_API_KEY;
+    process.env.CLOUDINARY_API_KEY?.trim();
 
   const apiSecret =
-    process.env.CLOUDINARY_API_SECRET;
+    process.env.CLOUDINARY_API_SECRET?.trim();
 
   if (!apiKey || !apiSecret) {
     throw new Error(
-      "Cloudinary API credentials are not configured."
+      "Cloudinary API credentials are not configured. " +
+        "Set CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET."
     );
   }
 
-  const credentials =
-    Buffer.from(
-      `${apiKey}:${apiSecret}`
-    ).toString("base64");
+  const credentials = Buffer.from(
+    `${apiKey}:${apiSecret}`
+  ).toString("base64");
 
   return `Basic ${credentials}`;
 }
 
 /**
- * Generic Cloudinary Admin API request helper.
+ * ============================================================
+ * CLOUDINARY API REQUEST
+ * ============================================================
  */
+
 async function cloudinaryRequest<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const response =
-    await fetch(
-      getCloudinaryApiUrl(path),
-      {
-        ...options,
+  const response = await fetch(
+    getCloudinaryApiUrl(path),
+    {
+      ...options,
 
-        headers: {
-          Authorization:
-            getCloudinaryAuthHeader(),
+      headers: {
+        Authorization:
+          getCloudinaryAuthHeader(),
 
-          Accept:
-            "application/json",
+        Accept:
+          "application/json",
 
-          "Content-Type":
-            "application/json",
+        "Content-Type":
+          "application/json",
 
-          ...(options.headers ?? {}),
-        },
-      }
-    );
+        ...(options.headers ?? {}),
+      },
+    }
+  );
 
   if (!response.ok) {
     const body =
@@ -168,6 +142,24 @@ async function cloudinaryRequest<T>(
     );
   }
 
+  const contentType =
+    response.headers.get(
+      "content-type"
+    );
+
+  if (
+    !contentType?.includes(
+      "application/json"
+    )
+  ) {
+    const body =
+      await response.text();
+
+    throw new Error(
+      `Cloudinary API returned a non-JSON response: ${body}`
+    );
+  }
+
   return (await response.json()) as T;
 }
 
@@ -175,13 +167,8 @@ async function cloudinaryRequest<T>(
  * ============================================================
  * STATUS NORMALIZATION
  * ============================================================
- *
- * Cloudinary status values are normalized into the application's
- * internal LiveStreamStatus values.
- *
- * This function is exported because streamRotationService.ts
- * depends on it.
  */
+
 export function normalizeCloudinaryStatus(
   status?: string | null
 ): LiveStreamStatus {
@@ -228,14 +215,13 @@ export function normalizeCloudinaryStatus(
 }
 
 /**
- ============================================================
+ * ============================================================
  * CLOUDINARY STREAM LIST
  * ============================================================
+ *
+ * Gets all live streams configured in Cloudinary.
  */
 
-/**
- * Fetch all live streams registered in Cloudinary.
- */
 export async function fetchCloudinaryStreams(): Promise<
   CloudinaryLiveStream[]
 > {
@@ -245,29 +231,21 @@ export async function fetchCloudinaryStreams(): Promise<
       | {
           live_streams?: CloudinaryLiveStream[];
         }
-    >(
-      "/live_streams"
-    );
+    >("/live_streams");
 
   if (Array.isArray(data)) {
     return data;
   }
 
-  return (
-    data.live_streams ??
-    []
-  );
+  return data.live_streams ?? [];
 }
 
 /**
  * ============================================================
- * GET ONE CLOUDINARY STREAM
+ * GET CLOUDINARY STREAM
  * ============================================================
  */
 
-/**
- * Fetch one Cloudinary live stream by Cloudinary stream ID.
- */
 export async function getCloudinaryLiveStream(
   streamId: string
 ): Promise<CloudinaryLiveStream> {
@@ -283,8 +261,7 @@ export async function getCloudinaryLiveStream(
   const stream =
     streams.find(
       (item) =>
-        item.id ===
-        streamId
+        item.id === streamId
     );
 
   if (!stream) {
@@ -298,8 +275,6 @@ export async function getCloudinaryLiveStream(
 
 /**
  * Backwards-compatible alias.
- *
- * streamRotationService.ts uses fetchCloudinaryStream().
  */
 export const fetchCloudinaryStream =
   getCloudinaryLiveStream;
@@ -309,13 +284,14 @@ export const fetchCloudinaryStream =
  * PUBLIC STREAM TRANSFORMATION
  * ============================================================
  *
- * IMPORTANT:
+ * NEVER expose:
  *
- * streamKey and rtmpUrl are deliberately excluded.
+ * - streamKey
+ * - rtmpUrl
  *
- * Only safe playback/application information should ever
- * reach the frontend.
+ * to the frontend.
  */
+
 export function toPublicStream(
   stream: ILiveStream
 ): LiveStreamPublicData {
@@ -348,27 +324,22 @@ export function toPublicStream(
       stream.isActive,
 
     startedAt:
-      stream.startedAt ??
-      null,
+      stream.startedAt ?? null,
 
     expiresAt:
-      stream.expiresAt ??
-      null,
+      stream.expiresAt ?? null,
 
     lastTransitionAt:
-      stream.lastTransitionAt ??
-      null,
+      stream.lastTransitionAt ?? null,
 
     usageCount:
       stream.usageCount,
 
     lastHealthCheckAt:
-      stream.lastHealthCheckAt ??
-      null,
+      stream.lastHealthCheckAt ?? null,
 
     lastError:
-      stream.lastError ??
-      null,
+      stream.lastError ?? null,
   };
 }
 
@@ -376,11 +347,14 @@ export function toPublicStream(
  * ============================================================
  * CREATE CLOUDINARY LIVE STREAM
  * ============================================================
+ *
+ * Creates one actual Cloudinary Live Stream.
+ *
+ * IMPORTANT:
+ * This is an ADMIN API operation and must only run
+ * on the backend.
  */
 
-/**
- * Create a new live stream inside Cloudinary.
- */
 async function createCloudinaryStream(
   name: string
 ): Promise<CloudinaryLiveStream> {
@@ -393,19 +367,13 @@ async function createCloudinaryStream(
   return cloudinaryRequest<CloudinaryLiveStream>(
     "/live_streams",
     {
-      method:
-        "POST",
+      method: "POST",
 
-      body:
-        JSON.stringify({
-          name,
-
-          resource_type:
-            "video",
-
-          type:
-            "upload",
-        }),
+      body: JSON.stringify({
+        name,
+        resource_type: "video",
+        type: "upload",
+      }),
     }
   );
 }
@@ -415,11 +383,16 @@ async function createCloudinaryStream(
  * PROVISION ONE STREAM
  * ============================================================
  *
- * Creates one Cloudinary stream and registers it in MongoDB.
+ * Creates:
  *
- * If the sequence already exists in MongoDB, that stream is
- * returned instead of creating another Cloudinary stream.
+ * Cloudinary stream
+ *        ↓
+ * MongoDB LiveStream record
+ *
+ * The sequence determines its position in the
+ * 12-stream rotation pool.
  */
+
 export async function provisionCloudinaryStream(
   sequence: number
 ): Promise<ILiveStream> {
@@ -465,48 +438,33 @@ export async function provisionCloudinaryStream(
   const stream =
     await LiveStream.create({
       name,
-
       title:
         DEFAULT_TITLE,
-
       streamId:
         cloudinaryStream.id,
-
       streamKey:
         cloudinaryStream.stream_key,
-
       rtmpUrl:
         cloudinaryStream.rtmp_url,
-
       hlsUrl:
         cloudinaryStream.hls_url,
-
       publicId:
         cloudinaryStream.public_id,
-
       sequence,
-
       status:
         "idle",
-
       isActive:
         false,
-
       usageCount:
         0,
-
       startedAt:
         null,
-
       expiresAt:
         null,
-
       lastTransitionAt:
         null,
-
       lastHealthCheckAt:
         null,
-
       lastError:
         null,
     });
@@ -514,23 +472,11 @@ export async function provisionCloudinaryStream(
   return stream;
 }
 
-/**
- * ============================================================
- * PROVISION COMPLETE STREAM POOL
- * ============================================================
- */
-
-/**
- * Ensure all 12 Cloudinary streams exist locally.
- *
- * Existing streams are reused.
- */
 export async function provisionAllCloudinaryStreams(): Promise<{
   streams: ILiveStream[];
   count: number;
 }> {
-  const streams: ILiveStream[] =
-    [];
+  const streams: ILiveStream[] = [];
 
   for (
     let sequence = 1;
@@ -542,24 +488,14 @@ export async function provisionAllCloudinaryStreams(): Promise<{
         sequence
       );
 
-    streams.push(
-      stream
-    );
+    streams.push(stream);
   }
 
   return {
     streams,
-
-    count:
-      streams.length,
+    count: streams.length,
   };
 }
-
-/**
- * ============================================================
- * SYNCHRONIZE CLOUDINARY → MONGODB
- * ============================================================
- */
 
 export async function syncAllCloudinaryStreams() {
   const cloudinaryStreams =
@@ -574,8 +510,7 @@ export async function syncAllCloudinaryStreams() {
   }> = [];
 
   for (
-    const cloudinaryStream
-    of cloudinaryStreams
+    const cloudinaryStream of cloudinaryStreams
   ) {
     const existing =
       await LiveStream.findOne({
@@ -585,8 +520,7 @@ export async function syncAllCloudinaryStreams() {
 
     if (!existing) {
       results.push({
-        success:
-          false,
+        success: false,
 
         streamId:
           cloudinaryStream.id,
@@ -617,8 +551,7 @@ export async function syncAllCloudinaryStreams() {
     await existing.save();
 
     results.push({
-      success:
-        true,
+      success: true,
 
       streamId:
         existing.streamId,
@@ -632,12 +565,6 @@ export async function syncAllCloudinaryStreams() {
 
   return results;
 }
-
-/**
- * ============================================================
- * SYNCHRONIZE ONE STREAM HEALTH
- * ============================================================
- */
 
 export async function syncCloudinaryStreamHealth(
   streamId: string
@@ -679,53 +606,6 @@ export async function syncCloudinaryStreamHealth(
   return stream;
 }
 
-/**
- ============================================================
- * GET CLOUDINARY STREAM STATUS
- ============================================================
- */
-
-export async function getCloudinaryStreamStatus(
-  streamId: string
-): Promise<CloudinaryStreamStatus> {
-  const stream =
-    await getCloudinaryLiveStream(
-      streamId
-    );
-
-  return {
-    streamId:
-      stream.id,
-
-    status:
-      normalizeCloudinaryStatus(
-        stream.status
-      ),
-
-    rawStatus:
-      stream.status ??
-      null,
-
-    name:
-      stream.name ??
-      null,
-
-    publicId:
-      stream.public_id ??
-      null,
-
-    hlsUrl:
-      stream.hls_url ??
-      null,
-  };
-}
-
-/**
- * ============================================================
- * CHECK ALL REGISTERED STREAM HEALTH
- * ============================================================
- */
-
 export async function syncAllCloudinaryStreamHealth() {
   const streams =
     await LiveStream.find()
@@ -752,8 +632,7 @@ export async function syncAllCloudinaryStreamHealth() {
         );
 
       results.push({
-        success:
-          true,
+        success: true,
 
         streamId:
           updated.streamId,
@@ -766,8 +645,7 @@ export async function syncAllCloudinaryStreamHealth() {
       });
     } catch (error) {
       results.push({
-        success:
-          false,
+        success: false,
 
         streamId:
           stream.streamId,
@@ -789,21 +667,37 @@ export async function syncAllCloudinaryStreamHealth() {
   return results;
 }
 
-/**
- * ============================================================
- * ACTIVATE WEBSITE STREAM
- * ============================================================
- *
- * IMPORTANT:
- *
- * This changes the stream used by the website.
- *
- * It does NOT control OBS.
- * It does NOT change the Cloudinary RTMP destination.
- *
- * OBS must already be streaming to this Cloudinary stream
- * before this function is used for a live rotation.
- */
+export async function getCloudinaryStreamStatus(
+  streamId: string
+): Promise<CloudinaryStreamStatus> {
+  const stream =
+    await getCloudinaryLiveStream(
+      streamId
+    );
+
+  return {
+    streamId:
+      stream.id,
+
+    status:
+      normalizeCloudinaryStatus(
+        stream.status
+      ),
+
+    rawStatus:
+      stream.status ?? null,
+
+    name:
+      stream.name ?? null,
+
+    publicId:
+      stream.public_id ?? null,
+
+    hlsUrl:
+      stream.hls_url ?? null,
+  };
+}
+
 export async function activateCloudinaryStream(
   streamId: string
 ): Promise<ILiveStream> {
@@ -824,14 +718,12 @@ export async function activateCloudinaryStream(
   await LiveStream.updateMany(
     {
       streamId: {
-        $ne:
-          streamId,
+        $ne: streamId,
       },
     },
     {
       $set: {
-        isActive:
-          false,
+        isActive: false,
       },
     }
   ).exec();
@@ -878,8 +770,7 @@ export async function activateCloudinaryStream(
         },
       },
       {
-        new:
-          true,
+        new: true,
       }
     ).exec();
 
@@ -891,12 +782,6 @@ export async function activateCloudinaryStream(
 
   return activated;
 }
-
-/**
- * ============================================================
- * DEACTIVATE WEBSITE STREAM
- * ============================================================
- */
 
 export async function deactivateCloudinaryStream(
   streamId: string,
@@ -918,57 +803,28 @@ export async function deactivateCloudinaryStream(
       },
     },
     {
-      new:
-        true,
+      new: true,
     }
   ).exec();
 }
 
-/**
- * ============================================================
- * GET STREAM POOL
- * ============================================================
- *
- * streamKey is explicitly excluded.
- */
 export async function getCloudinaryStreamPool() {
   return LiveStream.find()
     .sort({
-      sequence:
-        1,
+      sequence: 1,
     })
-    .select(
-      "-streamKey"
-    )
+    .select("-streamKey")
     .exec();
 }
 
-/**
- * ============================================================
- * GET ACTIVE STREAM
- * ============================================================
- *
- * streamKey is explicitly excluded.
- */
 export async function getActiveCloudinaryStream() {
   return LiveStream.findOne({
-    isActive:
-      true,
+    isActive: true,
   })
-    .select(
-      "-streamKey"
-    )
+    .select("-streamKey")
     .exec();
 }
 
-/**
- * ============================================================
- * CALCULATE ROTATION EXPIRY
- * ============================================================
- *
- * The application intentionally rotates before Cloudinary's
- * theoretical 180-minute maximum.
- */
 export function calculateStreamExpiry(
   startedAt: Date,
   rotationMinutes =
@@ -995,16 +851,6 @@ export function calculateStreamExpiry(
   );
 }
 
-/**
- * ============================================================
- * PUBLIC ACTIVE STREAM
- * ============================================================
- *
- * Returns only the stream currently intended for website
- * playback.
- *
- * Private credentials are never returned.
- */
 export async function getPublicCloudinaryStream(): Promise<{
   isLive: boolean;
   stream: LiveStreamPublicData | null;
@@ -1014,19 +860,14 @@ export async function getPublicCloudinaryStream(): Promise<{
 
   if (!stream) {
     return {
-      isLive:
-        false,
-
-      stream:
-        null,
+      isLive: false,
+      stream: null,
     };
   }
 
   const isLive =
-    stream.status ===
-      "live" ||
-    stream.status ===
-      "transitioning";
+    stream.status === "live" ||
+    stream.status === "transitioning";
 
   return {
     isLive,
@@ -1038,23 +879,13 @@ export async function getPublicCloudinaryStream(): Promise<{
   };
 }
 
-/**
- * ============================================================
- * GET PUBLIC STREAM POOL
- * ============================================================
- *
- * Safe representation of all registered streams.
- *
- * No stream keys or RTMP URLs are returned.
- */
 export async function getPublicCloudinaryStreamPool(): Promise<
   LiveStreamPublicData[]
 > {
   const streams =
     await LiveStream.find()
       .sort({
-        sequence:
-          1,
+        sequence: 1,
       })
       .exec();
 
@@ -1063,35 +894,18 @@ export async function getPublicCloudinaryStreamPool(): Promise<
   );
 }
 
-/**
- * ============================================================
- * GET ROTATION INFORMATION
- * ============================================================
- *
- * This function is intentionally read-only.
- *
- * It does not rotate streams.
- */
 export async function getCloudinaryRotationState() {
   const activeStream =
     await LiveStream.findOne({
-      isActive:
-        true,
+      isActive: true,
     }).exec();
 
   if (!activeStream) {
     return {
-      activeStream:
-        null,
-
-      nextStream:
-        null,
-
-      rotationDue:
-        false,
-
-      expiresAt:
-        null,
+      activeStream: null,
+      nextStream: null,
+      rotationDue: false,
+      expiresAt: null,
     };
   }
 
@@ -1136,11 +950,13 @@ export async function getCloudinaryRotationState() {
 }
 
 /**
- ============================================================
+ * ============================================================
  * EXPORTS
- ============================================================
+ * ============================================================
  */
 
 export {
   DEFAULT_TITLE,
 };
+
+

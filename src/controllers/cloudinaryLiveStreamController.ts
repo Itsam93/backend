@@ -6,24 +6,9 @@ import {
   syncAllCloudinaryStreams,
 } from "../services/cloudinaryLiveStreamService.js";
 
-/**
- * ============================================================
- * CONSTANTS
- * ============================================================
- */
 
 const MAX_STREAMS = 12;
 
-/**
- * ============================================================
- * HELPERS
- * ============================================================
- */
-
-/**
- * Extract and validate a stream sequence from Express route
- * parameters.
- */
 function getSequence(
   value: string | string[] | undefined
 ): number | null {
@@ -44,9 +29,6 @@ function getSequence(
   return sequence;
 }
 
-/**
- * Convert unknown errors into a safe API message.
- */
 function getErrorMessage(
   error: unknown,
   fallback: string
@@ -56,16 +38,6 @@ function getErrorMessage(
     : fallback;
 }
 
-/**
- * ============================================================
- * PROVISION ALL CLOUDINARY STREAMS
- * ============================================================
- *
- * POST /api/live-stream/admin/provision
- *
- * Creates/registers the complete 12-stream Cloudinary pool
- * and synchronizes the corresponding MongoDB records.
- */
 export async function provisionAllCloudinaryStreamsController(
   _req: Request,
   res: Response
@@ -188,3 +160,4 @@ export async function syncAllCloudinaryStreamsController(
     });
   }
 }
+

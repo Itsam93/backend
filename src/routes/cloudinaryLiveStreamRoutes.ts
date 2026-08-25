@@ -10,12 +10,16 @@ const router = Router();
 
 /**
  * ============================================================
- * ADMIN — CLOUDINARY STREAM PROVISIONING
+ * ADMIN — CLOUDINARY STREAM MANAGEMENT
  * ============================================================
- *
+ */
+
+/**
  * POST /api/live-stream/admin/provision
  *
- * Creates/registers the complete 12-stream Cloudinary pool.
+ * Provisions/registers the complete Cloudinary stream pool.
+ *
+ * The service is responsible for enforcing MAX_STREAMS.
  */
 router.post(
   "/admin/provision",
@@ -24,12 +28,14 @@ router.post(
 
 /**
  * ============================================================
- * ADMIN — PROVISION ONE STREAM
+ * ADMIN — SINGLE STREAM PROVISIONING
  * ============================================================
- *
+ */
+
+/**
  * POST /api/live-stream/admin/provision/:sequence
  *
- * Creates or repairs one stream in the pool.
+ * Provisions or retrieves one stream by sequence.
  *
  * Example:
  *
@@ -42,13 +48,14 @@ router.post(
 
 /**
  * ============================================================
- * ADMIN — SYNCHRONIZE CLOUDINARY STREAMS
+ * ADMIN — CLOUDINARY/MONGODB SYNCHRONIZATION
  * ============================================================
- *
+ */
+
+/**
  * POST /api/live-stream/admin/sync
  *
- * Synchronizes Cloudinary's current stream configuration
- * with MongoDB.
+ * Synchronizes Cloudinary stream information with MongoDB.
  */
 router.post(
   "/admin/sync",
