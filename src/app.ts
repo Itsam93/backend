@@ -10,18 +10,24 @@ import cookieParser from "cookie-parser";
 
 import messageRoutes from "./routes/messageRoutes.js";
 import videoRoutes from "./routes/videoRoutes.js";
-import celebrationRoutes from "./routes/celebrationRoutes";
-import webhookRoutes from "./routes/webhookRoutes.js";
+import celebrationRoutes from "./routes/celebrationRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import adminAuthRoutes from "./routes/adminAuthRoutes.js";
+import liveStreamRoutes from "./routes/liveStreamRoutes.js";
+
+/**
+ * ============================================================
+ * APPLICATION
+ * ============================================================
+ */
 
 const app = express();
 
-/*
-|--------------------------------------------------------------------------
-| Security
-|--------------------------------------------------------------------------
-*/
+/**
+ * ============================================================
+ * SECURITY HEADERS
+ * ============================================================
+ */
 
 app.use(
   helmet({
@@ -31,32 +37,34 @@ app.use(
   })
 );
 
-/*
-|--------------------------------------------------------------------------
-| CORS
-|--------------------------------------------------------------------------
-*/
+/**
+ * ============================================================
+ * CORS
+ * ============================================================
+ *
+ * The frontend origin can be configured through CLIENT_URL.
+ *
+ * When CLIENT_URL is not configured, origin:true allows the
+ * requesting origin. This is useful during local development.
+ */
+
+const configuredClientUrl =
+  process.env.CLIENT_URL?.trim();
 
 app.use(
   cors({
-    origin: true,
+    origin: configuredClientUrl || true,
     credentials: true,
   })
 );
 
-/*
-|--------------------------------------------------------------------------
-| Cookies
-|--------------------------------------------------------------------------
-*/
+/**
+ * ============================================================
+ * REQUEST PARSERS
+ * ============================================================
+ */
 
 app.use(cookieParser());
-
-/*
-|--------------------------------------------------------------------------
-| Body Parsing
-|--------------------------------------------------------------------------
-*/
 
 app.use(
   express.json({
@@ -71,19 +79,21 @@ app.use(
   })
 );
 
-/*
-|--------------------------------------------------------------------------
-| Logging
-|--------------------------------------------------------------------------
-*/
+/**
+ * ============================================================
+ * REQUEST LOGGING
+ * ============================================================
+ */
 
 app.use(morgan("dev"));
 
-/*
-|--------------------------------------------------------------------------
-| Health Check
-|--------------------------------------------------------------------------
-*/
+/**
+ * ============================================================
+ * HEALTH CHECK
+ * ============================================================
+ *
+ * GET /api/health
+ */
 
 app.get(
   "/api/health",
@@ -91,100 +101,110 @@ app.get(
     _req: Request,
     res: Response
   ) => {
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Backend is running.",
     });
   }
 );
 
-/*
-|--------------------------------------------------------------------------
-| Public API Routes
-|--------------------------------------------------------------------------
-*/
+/**
+ * ============================================================
+ * PUBLIC API ROUTES
+ * ============================================================
+ */
 
+/**
+ * Celebration messages.
+ *
+ * /api/messages/*
+ */
 app.use(
   "/api/messages",
   messageRoutes
 );
 
+/**
+ * Celebration videos.
+ *
+ * /api/videos/*
+ */
 app.use(
   "/api/videos",
   videoRoutes
 );
 
+/**
+ * Celebration content.
+ *
+ * /api/celebration/*
+ */
 app.use(
   "/api/celebration",
   celebrationRoutes
 );
 
+/**
+ * Live-stream API.
+ *
+ * /api/live-stream/*
+ */
 app.use(
-  "/api/webhooks",
-  webhookRoutes
+  "/api/live-stream",
+  liveStreamRoutes
 );
 
-/*
-|--------------------------------------------------------------------------
-| Admin Authentication Routes
-|--------------------------------------------------------------------------
-|
-| These routes are responsible for:
-|
-| POST /api/admin/auth/login
-| POST /api/admin/auth/logout
-| GET  /api/admin/auth/me
-|
-| They are intentionally mounted BEFORE the protected
-| /api/admin routes.
-|
-|--------------------------------------------------------------------------
-*/
-
+/**
+ * ============================================================
+ * ADMIN AUTHENTICATION
+ * ============================================================
+ *
+ * /api/admin/auth/*
+ */
 app.use(
   "/api/admin/auth",
   adminAuthRoutes
 );
 
-/*
-|--------------------------------------------------------------------------
-| Protected Admin Routes
-|--------------------------------------------------------------------------
-|
-| Authentication is handled inside adminRoutes.ts
-| through the adminAuth middleware.
-|
-|--------------------------------------------------------------------------
-*/
-
+/**
+ * ============================================================
+ * ADMIN API
+ * ============================================================
+ *
+ * /api/admin/*
+ */
 app.use(
   "/api/admin",
   adminRoutes
 );
 
-/*
-|--------------------------------------------------------------------------
-| 404 Handler
-|--------------------------------------------------------------------------
-*/
+/**
+ * ============================================================
+ * 404 HANDLER
+ * ============================================================
+ *
+ * Any request that reaches this point did not match a route.
+ */
 
 app.use(
   (
     _req: Request,
     res: Response
   ) => {
-    res.status(404).json({
+    return res.status(404).json({
       success: false,
       message: "Route not found.",
     });
   }
 );
 
-/*
-|--------------------------------------------------------------------------
-| Global Error Handler
-|--------------------------------------------------------------------------
-*/
+/**
+ * ============================================================
+ * GLOBAL ERROR HANDLER
+ * ============================================================
+ *
+ * This must remain the final middleware.
+ */
 
 app.use(
   (
@@ -202,12 +222,25 @@ app.use(
       return;
     }
 
-    res.status(500).json({
+    const message =
+      process.env.NODE_ENV ===
+        "production"
+        ? "An unexpected server error occurred."
+        : error instanceof Error
+          ? error.message
+          : "An unexpected server error occurred.";
+
+    return res.status(500).json({
       success: false,
-      message:
-        "An unexpected server error occurred.",
+      message,
     });
   }
 );
+
+/**
+ * ============================================================
+ * EXPORT
+ * ============================================================
+ */
 
 export { app };
