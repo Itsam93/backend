@@ -11,7 +11,21 @@ import cloudinary from "../config/cloudinary.js";
 
 import { Video } from "../models/Video.js";
 
-const MAX_VIDEO_DURATION = 30;
+/**
+ * ============================================================
+ * VIDEO UPLOAD LIMITS
+ * ============================================================
+ */
+
+const MAX_VIDEO_DURATION = 120; // 2 minutes
+const MAX_FILE_SIZE =
+  100 * 1024 * 1024; // 100 MB
+
+/**
+ * ============================================================
+ * GET RANDOM APPROVED VIDEO
+ * ============================================================
+ */
 
 export async function getRandomApprovedVideo(
   _req: Request,
@@ -50,6 +64,12 @@ export async function getRandomApprovedVideo(
   }
 }
 
+/**
+ * ============================================================
+ * GET LATEST APPROVED VIDEO
+ * ============================================================
+ */
+
 export async function getLatestApprovedVideo(
   _req: Request,
   res: Response
@@ -83,6 +103,12 @@ export async function getLatestApprovedVideo(
   }
 }
 
+/**
+ * ============================================================
+ * UPLOAD VIDEO
+ * ============================================================
+ */
+
 export async function uploadVideo(
   req: Request,
   res: Response
@@ -99,6 +125,12 @@ export async function uploadVideo(
     } = req.body;
 
     const file = req.file;
+
+    /**
+     * ========================================================
+     * VALIDATE NAME
+     * ========================================================
+     */
 
     const trimmedName =
       typeof name === "string"
@@ -125,6 +157,12 @@ export async function uploadVideo(
       return;
     }
 
+    /**
+     * ========================================================
+     * VALIDATE CHURCH
+     * ========================================================
+     */
+
     const trimmedChurch =
       typeof church === "string"
         ? church.trim()
@@ -150,6 +188,12 @@ export async function uploadVideo(
       return;
     }
 
+    /**
+     * ========================================================
+     * VALIDATE VIDEO FILE
+     * ========================================================
+     */
+
     if (!file) {
       res.status(400).json({
         success: false,
@@ -159,6 +203,31 @@ export async function uploadVideo(
 
       return;
     }
+
+    /**
+     * ========================================================
+     * VALIDATE FILE SIZE
+     * ========================================================
+     *
+     * Multer also enforces this limit, but we keep the
+     * controller-level validation as an additional safeguard.
+     */
+
+    if (file.size > MAX_FILE_SIZE) {
+      res.status(400).json({
+        success: false,
+        message:
+          "Your video must be 100 MB or less.",
+      });
+
+      return;
+    }
+
+    /**
+     * ========================================================
+     * VALIDATE VIDEO DURATION
+     * ========================================================
+     */
 
     const parsedDuration =
       Number(duration);
@@ -178,6 +247,11 @@ export async function uploadVideo(
       return;
     }
 
+    /**
+     * Maximum duration:
+     * 120 seconds = 2 minutes
+     */
+
     if (
       parsedDuration >
       MAX_VIDEO_DURATION
@@ -185,11 +259,17 @@ export async function uploadVideo(
       res.status(400).json({
         success: false,
         message:
-          "Your video must be 30 seconds or less.",
+          "Your video must be 2 minutes or less.",
       });
 
       return;
     }
+
+    /**
+     * ========================================================
+     * UPLOAD TO CLOUDINARY
+     * ========================================================
+     */
 
     const uploadResult =
       await new Promise<UploadApiResponse>(
@@ -245,8 +325,21 @@ export async function uploadVideo(
         }
       );
 
+    /**
+     * Keep track of the Cloudinary public ID.
+     *
+     * If database creation fails after the upload,
+     * the catch block can remove the uploaded video.
+     */
+
     uploadedPublicId =
       uploadResult.public_id;
+
+    /**
+     * ========================================================
+     * SAVE VIDEO TO DATABASE
+     * ========================================================
+     */
 
     const video =
       await Video.create({
@@ -273,6 +366,12 @@ export async function uploadVideo(
 
         reviewedAt: null,
       });
+
+    /**
+     * ========================================================
+     * SUCCESS RESPONSE
+     * ========================================================
+     */
 
     res.status(201).json({
       success: true,
@@ -302,15 +401,25 @@ export async function uploadVideo(
     });
   } catch (error) {
     /**
-     * -------------------------------------------------------
+     * ========================================================
      * ERROR HANDLING
-     * -------------------------------------------------------
+     * ========================================================
      */
 
     console.error(
       "Video upload failed:",
       error
     );
+
+    /**
+     * ========================================================
+     * CLOUDINARY CLEANUP
+     * ========================================================
+     *
+     * If the video was successfully uploaded to Cloudinary
+     * but something failed afterward, remove the orphaned
+     * Cloudinary asset.
+     */
 
     if (uploadedPublicId) {
       try {
@@ -327,6 +436,12 @@ export async function uploadVideo(
         );
       }
     }
+
+    /**
+     * ========================================================
+     * RETURN ERROR
+     * ========================================================
+     */
 
     if (
       error instanceof Error
@@ -351,12 +466,19 @@ export async function uploadVideo(
   }
 }
 
+/**
+ * ============================================================
+ * DELETE APPROVED VIDEO
+ * ============================================================
+ */
+
 export async function deleteApprovedVideo(
   req: Request,
   res: Response
 ): Promise<void> {
   try {
-    const { id } = req.params;
+    const { id } =
+      req.params;
 
     if (!id) {
       res.status(400).json({
@@ -367,6 +489,11 @@ export async function deleteApprovedVideo(
 
       return;
     }
+
+    /**
+     * Only approved videos can be deleted
+     * through this endpoint.
+     */
 
     const video =
       await Video.findOne({
@@ -384,6 +511,12 @@ export async function deleteApprovedVideo(
       return;
     }
 
+    /**
+     * ========================================================
+     * DELETE FROM CLOUDINARY
+     * ========================================================
+     */
+
     if (video.publicId) {
       try {
         const cloudinaryResult =
@@ -393,7 +526,6 @@ export async function deleteApprovedVideo(
               resource_type: "video",
             }
           );
-
 
         if (
           cloudinaryResult.result !==
@@ -414,7 +546,9 @@ export async function deleteApprovedVideo(
 
           return;
         }
-      } catch (cloudinaryError) {
+      } catch (
+        cloudinaryError
+      ) {
         console.error(
           "Failed to delete video from Cloudinary:",
           cloudinaryError
@@ -430,15 +564,28 @@ export async function deleteApprovedVideo(
       }
     }
 
+    /**
+     * ========================================================
+     * DELETE FROM DATABASE
+     * ========================================================
+     */
 
     await Video.deleteOne({
       _id: video._id,
     });
 
+    /**
+     * ========================================================
+     * SUCCESS RESPONSE
+     * ========================================================
+     */
+
     res.status(200).json({
       success: true,
+
       message:
         "Approved video deleted successfully.",
+
       data: {
         id: video._id,
       },
@@ -451,28 +598,36 @@ export async function deleteApprovedVideo(
 
     res.status(500).json({
       success: false,
+
       message:
         "Failed to delete approved video.",
     });
   }
 }
 
+/**
+ * ============================================================
+ * GET ALL APPROVED VIDEOS
+ * ============================================================
+ */
+
 export async function getApprovedVideos(
   _req: Request,
   res: Response
 ): Promise<void> {
   try {
-    const videos = await Video.find({
-      status: "approved",
-    })
-      .select(
-        "_id name church videoUrl createdAt duration"
-      )
-      .sort({
-        reviewedAt: -1,
-        createdAt: -1,
+    const videos =
+      await Video.find({
+        status: "approved",
       })
-      .lean();
+        .select(
+          "_id name church videoUrl createdAt duration"
+        )
+        .sort({
+          reviewedAt: -1,
+          createdAt: -1,
+        })
+        .lean();
 
     res.status(200).json({
       success: true,

@@ -1,7 +1,7 @@
 import multer from "multer";
 
 const MAX_FILE_SIZE =
-  50 * 1024 * 1024;
+  100 * 1024 * 1024;
 
 const allowedMimeTypes = [
   "video/mp4",
